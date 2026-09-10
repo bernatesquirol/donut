@@ -1,0 +1,265 @@
+/**
+ * Styles for the DOM screens — the creator and the published view. The pixi
+ * side has its own palette in src/theme.ts; these colours are the same values
+ * written out by hand, so change both together.
+ */
+
+.screen {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 20px 20px 80px;
+  color: #e8edf5;
+}
+
+.screen a {
+  color: #2fbfa8;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+.topbar h1 {
+  font-size: 15px;
+  letter-spacing: 2px;
+  font-weight: 700;
+  color: #2fbfa8;
+  margin: 0;
+  flex: 1;
+  text-transform: uppercase;
+}
+.topbar nav {
+  display: flex;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.card {
+  background: #12151c;
+  border: 1px solid #222836;
+  border-radius: 12px;
+  padding: 18px;
+  margin-bottom: 16px;
+}
+.card h2 {
+  margin: 0 0 12px;
+  font-size: 11px;
+  letter-spacing: 1.4px;
+  font-weight: 600;
+  color: #6b7686;
+  text-transform: uppercase;
+}
+
+/* --- controls ----------------------------------------------------------- */
+
+label.field {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: #6b7686;
+}
+label.field span {
+  display: block;
+  margin-bottom: 5px;
+}
+
+input[type="text"] {
+  width: 100%;
+  box-sizing: border-box;
+  background: #1a1f29;
+  border: 1px solid #2a3140;
+  border-radius: 8px;
+  color: #e8edf5;
+  padding: 9px 10px;
+  font: inherit;
+  font-size: 13px;
+}
+input[type="text"]:focus {
+  outline: 1px solid #2fbfa8;
+  border-color: #2fbfa8;
+}
+
+input[type="range"] {
+  accent-color: #2fbfa8;
+}
+
+button {
+  background: #1a1f29;
+  border: 1px solid #2a3140;
+  border-radius: 8px;
+  color: #e8edf5;
+  padding: 8px 13px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+button:hover:not(:disabled) {
+  border-color: #2fbfa8;
+}
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+button.primary {
+  background: #2fbfa8;
+  border-color: #2fbfa8;
+  color: #08120f;
+  font-weight: 600;
+}
+button.danger:hover {
+  border-color: #ff5c8a;
+  color: #ff5c8a;
+}
+button.sm {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+button.link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #2fbfa8;
+  font-size: 13px;
+  text-align: left;
+}
+button.link:hover {
+  text-decoration: underline;
+}
+
+/* A file input styled as a button; the input itself is unstylable. */
+label.file-button {
+  display: inline-block;
+  background: #1a1f29;
+  border: 1px solid #2a3140;
+  border-radius: 8px;
+  padding: 8px 13px;
+  font-size: 13px;
+  cursor: pointer;
+}
+label.file-button:hover {
+  border-color: #2fbfa8;
+}
+label.file-button input {
+  display: none;
+}
+
+/* --- helpers ------------------------------------------------------------ */
+
+.row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+.muted {
+  color: #6b7686;
+  font-size: 12px;
+}
+.muted code,
+code.muted {
+  font-size: 11px;
+}
+.error {
+  color: #ff5c8a;
+  font-size: 12px;
+  margin-top: 8px;
+}
+/* Publish failures are paragraphs, not words; let them wrap in the toolbar. */
+.grow-text {
+  flex: 1 1 100%;
+  order: 9;
+}
+
+/* --- document lists ----------------------------------------------------- */
+
+.doc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.doc-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid #222836;
+}
+.doc-list li:first-child {
+  border-top: none;
+}
+
+/* --- editor ------------------------------------------------------------- */
+
+.editor {
+  display: grid;
+  grid-template-columns: minmax(320px, 460px) 1fr;
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .editor {
+    grid-template-columns: 1fr;
+  }
+}
+
+.item-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+.item-row.selected {
+  border-color: #2fbfa8;
+  background: #131a1e;
+}
+.item-row input[type="text"] {
+  flex: 1;
+  min-width: 0;
+}
+.item-row .hue {
+  width: 72px;
+  flex: none;
+}
+.item-row .pos {
+  width: 74px;
+  flex: none;
+  text-align: right;
+}
+
+.swatch {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border-radius: 4px;
+}
+
+/* --- the embedded canvas ------------------------------------------------ */
+
+/* createGame() sizes itself to this box, so the aspect ratio is set here and
+   nowhere in the scene. */
+.preview {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #0b0d11;
+  touch-action: none;
+}
+.preview.tall {
+  aspect-ratio: 16 / 9;
+}
+.preview canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
