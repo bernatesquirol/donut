@@ -1,118 +1,139 @@
 import {
   Container,
   FederatedPointerEvent,
-  Graphics,
   Rectangle,
   Text,
   TextStyle,
 } from "pixi.js";
 import type { AppConfig } from "../config";
-import type { DocItem, GameDoc } from "../doc/types";
 import { fonts, metrics, theme } from "../theme";
+import { QuestionPanel } from "./QuestionPanel";
+import { Rosco } from "./Rosco";
+import type { MatchView, QuestionView } from "./view";
+
+/** Which letter, on whose donut, a pointer landed on. */
+export interface SceneTap {
+  seat: number;
+  index: number;
+}
+
+/** How much smaller the opponent's donut is on a contestant's own screen. */
+const UNFOCUSED = 0.52;
 
 /**
- * The playing surface: this is the file a real game replaces.
+ * Below this width a panel per contestant is two unreadable columns rather
+ * than one readable one, so only the question in play is drawn.
+ */
+const NARROW = 620;
+
+/**
+ * The playing surface: the donuts and the question on the table.
  *
- * It exists to define the contract the rest of the starter is built around,
- * and the contract is deliberately small:
+ * A renderer and nothing else — the rules live in `match.ts`, the keys in
+ * `controls.ts`, and what a given screen is allowed to see in `view.ts`. It
+ * draws a `MatchView`, so the same class serves the host console reading a
+ * local `Match` and a contestant screen reading a live room, with no idea
+ * which it has.
  *
- *   setDoc()  the authored document is the only input
- *   resize()  the host owns the size; the scene never reads the window
- *   update()  one tick, given a delta in ms
- *   onTap     pointer events out, in document coordinates
- *
- * Everything downstream — the route at `/`, the creator's live preview, the
- * published view — drives it through exactly those four, so a scene rewrite
- * needs no changes anywhere else.
- *
- * What it draws is placeholder: each document item as a labelled tile at its
- * normalised position, bobbing so it is obvious the ticker is live, flashing
- * on tap so it is obvious hit-testing works.
+ *   setState(view)   structure, rulings, the question — on every change
+ *   setClocks(ms[])  the readings — every frame, because a live clock runs
+ *                    between changes
+ *   setFocus(seat)   whose donut is the big one; null means "both equal"
+ *   resize(w, h)     the host owns the size; the scene never reads the window
+ *   update(deltaMS)  one tick
+ *   onTap            a letter was clicked
  */
 export class Scene extends Container {
-  private frame = new Graphics();
-  private layer = new Container();
-  private hint: Text;
+  private roscos: Rosco[] = [];
 
-  private tiles = new Map<string, Tile>();
-  private doc: GameDoc | null = null;
+  private topLeft: Text;
+  private topMid: Text;
+  private topRight: Text;
+
+  /** One per question drawn: on the host, one per contestant. */
+  private panels: QuestionPanel[] = [];
+  private questions: QuestionView[] = [];
+
+  private view: MatchView | null = null;
+  private clocks: number[] = [];
+  private focus: number | null = null;
+  private title = "";
+  /** Top-right corner: the help key, plus whatever is currently switched off. */
+  private hint = "H  KEYS";
 
   private w = 0;
   private h = 0;
-  private elapsed = 0;
 
-  /**
-   * A tap on the scene. `item` is null when it landed on empty space; `x` and
-   * `y` are 0..1 document coordinates, ready to write straight back into a
-   * document.
-   */
-  onTap: (x: number, y: number, item: DocItem | null) => void = () => {};
+  onTap: (tap: SceneTap | null) => void = () => {};
 
   constructor(private config: AppConfig) {
     super();
-    this.addChild(this.frame, this.layer);
 
-    this.hint = new Text({
-      text: "No items yet — add some in the creator",
-      style: new TextStyle({
-        fontFamily: fonts.ui,
-        fontSize: 14,
-        fill: theme.textDim,
-        align: "center",
-      }),
-    });
-    this.hint.anchor.set(0.5);
-    this.addChild(this.hint);
+    this.topLeft = text(12, theme.textDim, "600", "left");
+    this.topMid = text(13, theme.textBright, "700", "center");
+    this.topRight = text(12, theme.textDim, "600", "right");
+
+    this.addChild(this.topLeft, this.topMid, this.topRight);
 
     this.eventMode = "static";
     this.on("pointertap", (e: FederatedPointerEvent) => {
-      const p = e.getLocalPosition(this);
-      this.onTap(
-        this.w > 0 ? p.x / this.w : 0.5,
-        this.h > 0 ? p.y / this.h : 0.5,
-        null,
-      );
+      // A tap either hit a letter — which stops propagation — or it hit the
+      // background, which the creator reads as "deselect".
+      void e;
+      this.onTap(null);
     });
   }
 
+  /** Shown top-left: the round's name. */
+  setTitle(title: string): void {
+    this.title = (title || "Untitled").toUpperCase();
+    this.topLeft.text = this.title;
+  }
+
+  /** The match. Called on every change, not every frame. */
+  setState(view: MatchView): void {
+    this.view = view;
+    this.clocks = view.seats.map((s) => s.remainingMs);
+    this.rebuildIfNeeded();
+    this.apply();
+  }
+
   /**
-   * Swap in a document. Tiles are reconciled by item id rather than rebuilt,
-   * so the creator's live preview does not restart every animation on each
-   * keystroke.
+   * The clock readings for this frame. Separate from `setState` because a
+   * live round's clock is computed from a shared anchor and so changes
+   * continuously while nothing else does.
    */
-  setDoc(doc: GameDoc): void {
-    this.doc = doc;
-    const seen = new Set<string>();
+  setClocks(ms: number[]): void {
+    this.clocks = ms;
+    ms.forEach((value, i) => this.roscos[i]?.setClock(value));
+  }
 
-    for (const item of doc.items) {
-      seen.add(item.id);
-      const existing = this.tiles.get(item.id);
-      if (existing) {
-        existing.setItem(item);
-        continue;
-      }
-      const tile = new Tile(item, (tapped) => {
-        // Stop the scene's own background handler from also firing: a tap is
-        // either on an item or on empty space, never both.
-        this.onTap(tapped.x, tapped.y, tapped);
-      });
-      this.tiles.set(item.id, tile);
-      this.layer.addChild(tile);
-    }
-
-    for (const [id, tile] of this.tiles) {
-      if (seen.has(id)) continue;
-      tile.destroy({ children: true });
-      this.tiles.delete(id);
-    }
-
-    this.hint.visible = doc.items.length === 0;
+  /**
+   * Make one donut the big one. A contestant's screen focuses their own seat,
+   * so their letters are readable across a studio and the opponent's are
+   * still there to be glanced at.
+   */
+  setFocus(seat: number | null): void {
+    if (seat === this.focus) return;
+    this.focus = seat;
     this.layout();
   }
 
-  /** Highlight one item, or none. Used by the creator to show the selection. */
-  setHighlight(itemId: string | null): void {
-    for (const [id, tile] of this.tiles) tile.setHighlight(id === itemId);
+  /**
+   * Ring one letter as "the one being edited". Independent of the letter on
+   * the table, which the rules own: the creator is looking at a document, not
+   * playing a round.
+   */
+  setSelection(seat: number | null, index: number | null): void {
+    this.roscos.forEach((rosco, i) => {
+      rosco.setSelected(i === seat ? index : null);
+    });
+  }
+
+  /** Replace the top-right hint, e.g. to say the cues are muted. */
+  setHint(text: string): void {
+    this.hint = text;
+    this.topRight.text = text;
   }
 
   resize(width: number, height: number): void {
@@ -124,168 +145,229 @@ export class Scene extends Container {
 
   /** One frame. `deltaMS` comes from the pixi ticker. */
   update(deltaMS: number): void {
-    this.elapsed += deltaMS / 1000;
-    const { bob, bobPeriod } = this.config.game;
-    let i = 0;
-    for (const tile of this.tiles.values()) {
-      // A per-tile phase offset, so they do not all rise and fall together.
-      const phase = (this.elapsed / bobPeriod + i * 0.17) * Math.PI * 2;
-      tile.setBob(Math.sin(phase) * bob);
-      tile.tick(deltaMS);
-      i++;
-    }
+    for (const rosco of this.roscos) rosco.update(deltaMS);
+  }
+
+  /** Re-run layout after a config change. */
+  refresh(): void {
+    this.apply();
+    this.layout();
+  }
+
+  // --- internals --------------------------------------------------------
+
+  private rebuildIfNeeded(): void {
+    const seats = this.view?.seats.length ?? 0;
+    if (seats === this.roscos.length) return;
+
+    for (const rosco of this.roscos) rosco.destroy({ children: true });
+    this.roscos = Array.from({ length: seats }, (_, seat) => {
+      const rosco = new Rosco();
+      rosco.onPick = (index) => this.onTap({ seat, index });
+      this.addChild(rosco);
+      return rosco;
+    });
+    this.layout();
+  }
+
+  private apply(): void {
+    const view = this.view;
+    if (!view) return;
+
+    const warnMs = this.config.game.warnAt * 1000;
+    view.seats.forEach((seat, i) => {
+      const rosco = this.roscos[i];
+      if (!rosco) return;
+      rosco.setSeat(seat, warnMs);
+      rosco.setClock(this.clocks[i] ?? seat.remainingMs);
+      // Once the round is over neither donut is "live": nothing is on the
+      // table, so nothing should be pulsing for attention.
+      rosco.setActive(!view.result && i === view.turn);
+    });
+
+    this.topMid.text = statusLine(view);
+    // A strike showing is the one case where "running" is not reassuring.
+    this.topMid.style.fill = view.result
+      ? theme.accent
+      : view.seats[view.turn]?.strikes
+        ? theme.danger
+        : view.running
+          ? theme.textBright
+          : theme.warn;
+
+    this.questions = view.questions;
+
+    // How many panels there are, and whether an answer line has to fit in
+    // them, both change what the stage has to make room for.
+    this.layout();
   }
 
   private layout(): void {
     if (this.w <= 0 || this.h <= 0) return;
 
-    this.frame
-      .clear()
-      .roundRect(1, 1, this.w - 2, this.h - 2, metrics.radius)
-      .fill({ color: theme.bg })
-      .stroke({ width: 1, color: theme.panelBorder, alignment: 1 });
+    const pad = metrics.panelPad;
+    const topH = clamp(this.h * 0.08, 28, 52);
+    const shown = this.shownQuestions();
+    // Half-width panels wrap their clue over more lines, so a row of them is
+    // given a little more of the stage than a single one gets.
+    const panelH =
+      shown.length > 1
+        ? clamp(this.h * 0.3, 110, 220)
+        : clamp(this.h * 0.26, 96, 190);
+    const midH = this.h - topH - panelH - pad;
 
-    this.hint.position.set(this.w / 2, this.h / 2);
+    this.topLeft.position.set(pad, topH / 2);
+    this.topMid.position.set(this.w / 2, topH / 2);
+    this.topRight.position.set(this.w - pad, topH / 2);
+    this.topRight.text = this.hint;
+    setSize(this.topMid, clamp(this.h * 0.026, 12, 20));
+    // Whose turn it is has to be readable at any width; the title and the
+    // help hint are the two that give way when the bar gets crowded.
+    this.topLeft.visible = this.w >= 860;
+    this.topRight.visible = this.w >= 620;
 
-    const size = Math.round(
-      Math.min(this.w, this.h) * this.config.game.itemSize,
+    this.layoutRoscos(topH, midH, pad);
+    this.layoutPanels(shown, this.h - panelH, panelH - pad, pad);
+  }
+
+  /**
+   * The questions there is room to draw. Every one the view offers, except on
+   * a stage too narrow to split — where the one being read out wins.
+   */
+  private shownQuestions(): QuestionView[] {
+    if (this.questions.length <= 1 || this.w >= NARROW) return this.questions;
+    const active = this.questions.filter((q) => q.active);
+    return active.length ? active : this.questions.slice(0, 1);
+  }
+
+  private layoutRoscos(topH: number, midH: number, pad: number): void {
+    const n = this.roscos.length;
+    if (n === 0 || midH <= 0) return;
+
+    // One weight per donut: equal on the host console, lopsided on a
+    // contestant's screen where one of them is theirs.
+    const weights = this.roscos.map((_, i) =>
+      this.focus === null || i === this.focus ? 1 : UNFOCUSED,
     );
-    for (const item of this.doc?.items ?? []) {
-      this.tiles.get(item.id)?.place(item.x * this.w, item.y * this.h, size, {
-        debugHitArea: this.config.game.debugHitArea,
-      });
+    const sum = weights.reduce((a, b) => a + b, 0);
+    const biggest = Math.max(...weights);
+
+    // Side by side or one above the other — whichever leaves room for the
+    // bigger donut. A tall phone-shaped window wants them stacked; a laptop
+    // wants them beside each other, and picking by aspect ratio guesses
+    // wrong right around square.
+    const beside = Math.min(
+      (this.w - pad * (n + 1)) / sum,
+      (midH - pad) / biggest,
+    );
+    const above = Math.min(
+      (this.w - pad * 2) / biggest,
+      (midH - pad * (n + 1)) / sum,
+    );
+    const stacked = above > beside;
+
+    const unit =
+      Math.max(40, stacked ? above : beside) *
+      clamp(this.config.game.roscoSize, 0.3, 1);
+    const diameters = weights.map((wt) => unit * wt);
+
+    // The focused donut comes first, so a contestant reads their own board
+    // before the opponent's.
+    const order = this.roscos.map((_, i) => i);
+    if (this.focus !== null) {
+      order.sort((a, b) => Number(a !== this.focus) - Number(b !== this.focus));
+    }
+
+    const span =
+      diameters.reduce((a, b) => a + b, 0) + pad * Math.max(0, n - 1);
+    const axis = stacked ? midH : this.w;
+    let cursor = (axis - span) / 2;
+
+    for (const i of order) {
+      const d = diameters[i];
+      const along = cursor + d / 2;
+      cursor += d + pad;
+      if (stacked) this.roscos[i].position.set(this.w / 2, topH + along);
+      else this.roscos[i].position.set(along, topH + midH / 2);
+      this.roscos[i].resize(d);
     }
   }
-}
 
-/** One document item on the stage. */
-class Tile extends Container {
-  private bg = new Graphics();
-  /** Not `label`: pixi's Container already declares that as a string. */
-  private caption: Text;
-  private item: DocItem;
-
-  private size = 0;
-  private baseY = 0;
-  /** Seconds left on the tap flash. */
-  private flash = 0;
-  private highlighted = false;
-  private debugHitArea = false;
-
-  constructor(item: DocItem, onTap: (item: DocItem) => void) {
-    super();
-    this.item = item;
-    this.addChild(this.bg);
-
-    this.caption = new Text({
-      text: item.label,
-      style: new TextStyle({
-        fontFamily: fonts.ui,
-        fontSize: 14,
-        fontWeight: "600",
-        fill: theme.textBright,
-      }),
-    });
-    this.caption.anchor.set(0.5);
-    this.addChild(this.caption);
-
-    this.eventMode = "static";
-    this.cursor = "pointer";
-    this.on("pointertap", (e: FederatedPointerEvent) => {
-      e.stopPropagation();
-      this.flash = 0.35;
-      this.redraw();
-      onTap(this.item);
-    });
-  }
-
-  setItem(item: DocItem): void {
-    this.item = item;
-    this.caption.text = item.label;
-    this.redraw();
-  }
-
-  setHighlight(on: boolean): void {
-    if (on === this.highlighted) return;
-    this.highlighted = on;
-    this.redraw();
-  }
-
-  place(
-    x: number,
+  /**
+   * The questions across the foot of the stage, side by side and equally
+   * wide. Equal rather than weighted towards the active one because they
+   * swap every time the table moves, and a panel that resizes as it lights
+   * up is a panel the host has to re-find.
+   */
+  private layoutPanels(
+    shown: QuestionView[],
     y: number,
-    size: number,
-    opts: { debugHitArea: boolean },
+    height: number,
+    pad: number,
   ): void {
-    this.size = size;
-    this.baseY = y;
-    this.position.set(x, y);
-    this.debugHitArea = opts.debugHitArea;
-    this.hitArea = new Rectangle(-size / 2, -size / 2, size, size);
-    this.redraw();
-  }
-
-  setBob(offset: number): void {
-    this.position.y = this.baseY + offset;
-  }
-
-  tick(deltaMS: number): void {
-    if (this.flash <= 0) return;
-    this.flash = Math.max(0, this.flash - deltaMS / 1000);
-    this.redraw();
-  }
-
-  private redraw(): void {
-    const s = this.size;
-    if (s <= 0) return;
-
-    // Hue from the document, lightness from the interaction state: one colour
-    // ramp covers idle, selected and just-tapped without three palettes.
-    const lightness = 0.3 + this.flash * 0.9 + (this.highlighted ? 0.12 : 0);
-    const fill = hsl(this.item.hue, 0.5, Math.min(0.92, lightness));
-    const border = this.highlighted
-      ? theme.accent
-      : hsl(this.item.hue, 0.6, 0.62);
-
-    const g = this.bg.clear();
-    g.roundRect(-s / 2, -s / 2, s, s, metrics.radius)
-      .fill({ color: fill })
-      .stroke({
-        width: this.highlighted ? 2 : 1,
-        color: border,
-        alignment: 0,
-      });
-
-    if (this.debugHitArea) {
-      g.rect(-s / 2, -s / 2, s, s).stroke({
-        width: 1,
-        color: theme.danger,
-        alpha: 0.8,
-      });
+    while (this.panels.length > shown.length) {
+      this.panels.pop()?.destroy({ children: true });
     }
+    while (this.panels.length < shown.length) {
+      const panel = new QuestionPanel();
+      this.panels.push(panel);
+      this.addChildAt(panel, 0);
+    }
+
+    const n = shown.length;
+    if (n === 0) return;
+
+    const width = (this.w - pad * 2 - pad * (n - 1)) / n;
+    shown.forEach((question, i) => {
+      const panel = this.panels[i];
+      // A name over a lone panel only repeats what the donut under it says.
+      panel.set(question, n > 1);
+      panel.position.set(pad + i * (width + pad), y);
+      panel.layout(width, height);
+    });
   }
 }
 
-/** HSL to a pixi colour int; `s` and `l` are 0..1. */
-function hsl(h: number, s: number, l: number): number {
-  const c = (1 - Math.abs(2 * l - 1)) * s;
-  const hp = (((h % 360) + 360) % 360) / 60;
-  const x = c * (1 - Math.abs((hp % 2) - 1));
-  const m = l - c / 2;
+function statusLine(view: MatchView): string {
+  if (view.result) return view.result.reason.toUpperCase();
+  const seat = view.seats[view.turn];
+  if (!seat) return "";
 
-  const [r, g, b] =
-    hp < 1
-      ? [c, x, 0]
-      : hp < 2
-        ? [x, c, 0]
-        : hp < 3
-          ? [0, c, x]
-          : hp < 4
-            ? [0, x, c]
-            : hp < 5
-              ? [x, 0, c]
-              : [c, 0, x];
+  const name = seat.player.toUpperCase();
+  const clock = view.running ? "RUNNING" : "PAUSED";
+  // Only once a strike is on the board: the host needs to know what the next
+  // wrong answer costs, and nothing else.
+  const strikes =
+    seat.strikes > 0 ? ` · STRIKE ${seat.strikes} OF ${view.strikeLimit}` : "";
+  return `${name} — ${clock}${strikes}`;
+}
 
-  const to255 = (v: number) => Math.round((v + m) * 255);
-  return (to255(r) << 16) | (to255(g) << 8) | to255(b);
+function clamp(v: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, v));
+}
+
+function text(
+  size: number,
+  fill: number,
+  weight: "600" | "700",
+  align: "left" | "center" | "right",
+): Text {
+  const t = new Text({
+    text: "",
+    style: new TextStyle({
+      fontFamily: fonts.ui,
+      fontSize: size,
+      fontWeight: weight,
+      fill,
+      align,
+      letterSpacing: weight === "700" ? 0.8 : 0,
+    }),
+  });
+  t.anchor.set(align === "left" ? 0 : align === "right" ? 1 : 0.5, 0.5);
+  return t;
+}
+
+function setSize(t: Text, size: number): void {
+  if (t.style.fontSize === size) return;
+  t.style.fontSize = size;
 }

@@ -1,7 +1,7 @@
 /**
  * Central palette + metrics, shared by the pixi scene and the pixi widgets in
  * `src/ui`. The DOM screens keep their own copy of these values in
- * `src/creator/creator.css` — keep the two in step if you restyle.
+ * `src/screens.css` — keep the two in step if you restyle.
  */
 export const theme = {
   bg: 0x0b0d11,
@@ -14,6 +14,10 @@ export const theme = {
 
   accent: 0x2fbfa8,
   danger: 0xff5c8a,
+  /** Passed letters and the clock in its last few seconds. */
+  warn: 0xe8a33c,
+  /** The letter on the table. Brighter than anything else on the stage. */
+  spot: 0xffffff,
 
   textDim: 0x6b7686,
   textBright: 0xe8edf5,

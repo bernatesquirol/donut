@@ -65,7 +65,8 @@ label.field span {
   margin-bottom: 5px;
 }
 
-input[type="text"] {
+input[type="text"],
+input[type="number"] {
   width: 100%;
   box-sizing: border-box;
   background: #1a1f29;
@@ -76,13 +77,26 @@ input[type="text"] {
   font: inherit;
   font-size: 13px;
 }
-input[type="text"]:focus {
+input[type="text"]:focus,
+input[type="number"]:focus {
   outline: 1px solid #2fbfa8;
   border-color: #2fbfa8;
 }
 
-input[type="range"] {
+input[type="range"],
+input[type="checkbox"] {
   accent-color: #2fbfa8;
+}
+input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+/* A number that is read as a quantity, not as prose. */
+input.num {
+  width: 96px;
+  font-variant-numeric: tabular-nums;
 }
 
 button {
@@ -196,50 +210,98 @@ code.muted {
 
 /* --- editor ------------------------------------------------------------- */
 
+/* One column: the thing being authored is a pair of wide donuts, and in a
+   side panel you cannot read the letters. */
 .editor {
-  display: grid;
-  grid-template-columns: minmax(320px, 460px) 1fr;
-  gap: 16px;
-  align-items: start;
-}
-@media (max-width: 900px) {
-  .editor {
-    grid-template-columns: 1fr;
-  }
+  display: block;
 }
 
-.item-row {
-  display: flex;
-  align-items: center;
+/* Board switcher. */
+.tabs {
   gap: 8px;
-  padding: 6px;
+}
+button.tab {
+  border-radius: 999px;
+  padding: 7px 15px;
+}
+button.tab.selected {
+  border-color: #2fbfa8;
+  background: #131a1e;
+  color: #2fbfa8;
+}
+
+/* --- the clue table ----------------------------------------------------- */
+
+/* Scrolls on its own so the preview above stays in view while you type — and
+   so `scrollIntoView` on a letter clicked in the donut moves this list and
+   not the page. */
+.letter-list {
+  max-height: 44vh;
+  overflow-y: auto;
+  margin-top: 14px;
+  padding-right: 4px;
+}
+
+.letter-head,
+.letter-row {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) minmax(120px, 0.5fr) 66px 34px;
+  gap: 8px;
+  align-items: center;
+}
+
+.letter-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #12151c;
+  padding: 4px 6px 8px;
+  font-size: 11px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: #6b7686;
+}
+.letter-head span:nth-child(4) {
+  text-align: center;
+}
+
+.letter-row {
+  padding: 4px 6px;
   border-radius: 8px;
   border: 1px solid transparent;
-  cursor: pointer;
 }
-.item-row.selected {
+.letter-row.selected {
   border-color: #2fbfa8;
   background: #131a1e;
 }
-.item-row input[type="text"] {
-  flex: 1;
-  min-width: 0;
+/* No clue written means the letter is present but out of play; the game skips
+   it, so the form should not pretend otherwise. */
+.letter-row.blank input.letter {
+  color: #39404e;
+  border-style: dashed;
 }
-.item-row .hue {
-  width: 72px;
-  flex: none;
-}
-.item-row .pos {
-  width: 74px;
-  flex: none;
-  text-align: right;
+.letter-row input[type="checkbox"] {
+  justify-self: center;
 }
 
-.swatch {
-  width: 14px;
-  height: 14px;
-  flex: none;
-  border-radius: 4px;
+input.letter {
+  width: 100%;
+  text-align: center;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+@media (max-width: 720px) {
+  .letter-head {
+    display: none;
+  }
+  .letter-row {
+    grid-template-columns: 42px minmax(0, 1fr) 30px 30px;
+    row-gap: 4px;
+  }
+  .letter-row input[type="text"]:nth-child(3) {
+    grid-column: 2 / -1;
+  }
 }
 
 /* --- the embedded canvas ------------------------------------------------ */
@@ -249,17 +311,98 @@ code.muted {
 .preview {
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 10;
+  aspect-ratio: 16 / 9;
   border-radius: 12px;
   overflow: hidden;
   background: #0b0d11;
   touch-action: none;
 }
+/* The published view gives it more height: nothing else is on that page. */
 .preview.tall {
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 2 / 1;
 }
 .preview canvas {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+/* --- shareable links ----------------------------------------------------- */
+
+/* Long URLs must not push the copy button off the row, and must not wrap into
+   something unreadable either. */
+.link-url {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: ltr;
+}
+
+/* A list item that only exists to nest another list. */
+.doc-list li.bare {
+  display: block;
+  padding: 0;
+  border-top: none;
+}
+
+/* --- pasting a whole board in ------------------------------------------- */
+
+textarea.paste-box {
+  width: 100%;
+  box-sizing: border-box;
+  background: #1a1f29;
+  border: 1px solid #2a3140;
+  border-radius: 8px;
+  color: #e8edf5;
+  padding: 10px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+}
+textarea.paste-box:focus {
+  outline: 1px solid #2fbfa8;
+  border-color: #2fbfa8;
+}
+
+/* What the paste was understood to say, before anything is written. */
+.paste-preview {
+  max-height: 32vh;
+  overflow-y: auto;
+  margin-top: 12px;
+  border: 1px solid #222836;
+  border-radius: 8px;
+  padding: 6px;
+}
+.paste-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) minmax(90px, 0.4fr);
+  gap: 8px;
+  align-items: baseline;
+  padding: 3px 4px;
+  font-size: 12px;
+}
+.paste-letter {
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #2fbfa8;
+  text-align: center;
+}
+/* A row with no answer still plays; the host just has nothing to check it
+   against, and that is worth seeing before it is written. */
+.paste-row.blank .paste-letter {
+  color: #6b7686;
+}
+.paste-clue {
+  color: #e8edf5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.paste-said {
+  margin: 10px 0 0;
+  color: #2fbfa8;
 }

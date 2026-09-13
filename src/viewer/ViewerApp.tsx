@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { loadConfig, type AppConfig } from "../config";
 import { RemoteStore } from "../doc/remote";
 import * as storage from "../doc/storage";
-import type { GameDoc } from "../doc/types";
+import { boardProgress, timeLimitOf, type GameDoc } from "../doc/types";
 import { createGame, type GameHandle } from "../game/game";
 import { readVersionFromUrl } from "../persistence";
 import { link } from "../router";
@@ -93,7 +93,13 @@ export function ViewerApp() {
       <Header title={doc.title || "Untitled"} />
       <Stage doc={doc} config={config} />
       <p class="muted">
-        {doc.items.length} item{doc.items.length === 1 ? "" : "s"} · published{" "}
+        {doc.boards
+          .map((b) => {
+            const p = boardProgress(b);
+            return `${b.player || "?"} ${p.done}/${p.total}`;
+          })
+          .join(" · ")}{" "}
+        · {timeLimitOf(doc, config.game.timeLimit)}s each · published{" "}
         {new Date(doc.updatedAt).toLocaleString()}
         {version ? (
           <>
@@ -101,6 +107,10 @@ export function ViewerApp() {
             · version <code>{version}</code>
           </>
         ) : null}
+      </p>
+      <p class="muted">
+        This page is the board, not the console: rulings are keyed by the host
+        on the <a href={link("/")}>game</a> screen.
       </p>
     </div>
   );

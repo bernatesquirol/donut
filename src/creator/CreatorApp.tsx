@@ -4,6 +4,7 @@ import { RemoteStore } from "../doc/remote";
 import * as storage from "../doc/storage";
 import { slugify, type GameDoc } from "../doc/types";
 import { link } from "../router";
+import { CopyLink } from "./CopyLink";
 import { DocPicker } from "./DocPicker";
 import { Editor } from "./Editor";
 
@@ -16,6 +17,36 @@ import { Editor } from "./Editor";
  * shared storage and moves the catalogue pointer, which is the only thing
  * anyone else can see.
  */
+/**
+ * What to send someone once a round is published.
+ *
+ * Both links resolve from shared storage, so they work on a machine that has
+ * never opened the creator — that is the whole point of publishing. The
+ * pinned `&v=` one keeps working even after the round is edited and published
+ * again, because versions are immutable and named by hash.
+ */
+function ShareLinks({ doc, hash }: { doc: GameDoc; hash: string }) {
+  const id = encodeURIComponent(doc.id);
+  const play = `/?id=${id}`;
+  const pinned = `/?id=${id}&v=${encodeURIComponent(hash)}`;
+  const view = `/view?id=${id}`;
+
+  return (
+    <div class="card">
+      <h2>Share this round</h2>
+      <ul class="doc-list">
+        <CopyLink path={play} label="Host it" />
+        <CopyLink path={pinned} label="Host this exact version" />
+        <CopyLink path={view} label="Just look at the board" />
+      </ul>
+      <p class="muted">
+        The first two open the console, keyboard and all. Editing this document
+        again does not change what they serve until you publish.
+      </p>
+    </div>
+  );
+}
+
 export function CreatorApp() {
   const config = useMemo(() => loadConfig(), []);
   const remote = useMemo(() => new RemoteStore(config), [config]);
@@ -23,6 +54,8 @@ export function CreatorApp() {
   const [doc, setDoc] = useState<GameDoc | null>(null);
   const [savedAt, setSavedAt] = useState("");
   const [publishState, setPublishState] = useState("");
+  /** Hash of the version just published, for the share links below. */
+  const [publishedHash, setPublishedHash] = useState("");
 
   // Autosave a moment after edits stop, so a refresh never loses work.
   useEffect(() => {
@@ -30,15 +63,20 @@ export function CreatorApp() {
     const timer = setTimeout(() => {
       storage.save(doc);
       setSavedAt(new Date().toLocaleTimeString());
+      // The links below point at what was published, and an edit means the
+      // draft and the published round have parted ways again.
       setPublishState("");
+      setPublishedHash("");
     }, 800);
     return () => clearTimeout(timer);
   }, [doc]);
 
   async function publish(current: GameDoc) {
     setPublishState("Publishing…");
+    setPublishedHash("");
     try {
       const hash = await remote.publish(current);
+      setPublishedHash(hash);
       setPublishState(
         remote.enabled
           ? `Published ${hash}`
@@ -117,6 +155,8 @@ export function CreatorApp() {
               </button>
             </div>
           </div>
+
+          {publishedHash && <ShareLinks doc={doc} hash={publishedHash} />}
 
           <Editor
             config={config}

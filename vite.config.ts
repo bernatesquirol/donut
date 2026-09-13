@@ -25,11 +25,15 @@ function pagesSpaFallback(): Plugin {
 }
 
 // https://vite.dev/config/
-export default defineConfig(({ command }) => ({
-  // The project page lives at <user>.github.io/blank-game/. Rename this to
+export default defineConfig(({ command, isPreview }) => ({
+  // The project page lives at <user>.github.io/donut/. Rename this to
   // the new repository when you fork the starter, or every asset 404s on
   // Pages. Dev keeps the root so local URLs stay short.
-  base: command === "build" ? "/blank-game/" : "/",
+  //
+  // `isPreview` matters: `vite preview` runs as command "serve" but serves
+  // the built index.html, which already has the Pages base baked into every
+  // asset URL. Without it, preview 404s on its own bundle.
+  base: command === "build" || isPreview ? "/donut/" : "/",
   plugins: [pagesSpaFallback()],
   server: {
     port: 8080,

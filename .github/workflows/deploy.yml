@@ -33,9 +33,27 @@ jobs:
       # be misleading: the endpoint authorises callers itself, and no
       # credential is meant to reach the client. Leave the variable unset and
       # the app falls back to localStorage.
+      #
+      # The Firebase values are variables for the same reason, and even more
+      # plainly: a web config is public by design. It names the project, it
+      # authorises nothing. What protects a live round is the database rules
+      # (see database.rules.json) plus the document's liveKey, which never
+      # appears in a published share link. Leave them unset and the live
+      # screens fall back to a same-browser transport.
+      #
+      # BASE_PATH is only for a GitHub Pages *project* page, which is served
+      # from <user>.github.io/<repo>/ and needs that prefix in every asset
+      # URL. Leave the variable unset and the site is built for the root,
+      # which is what a custom domain or a <user>.github.io repo serves.
       - run: npm run build
         env:
+          BASE_PATH: ${{ vars.BASE_PATH }}
           VITE_PRESIGN_ENDPOINT: ${{ vars.VITE_PRESIGN_ENDPOINT }}
+          VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_DATABASE_URL: ${{ vars.VITE_FIREBASE_DATABASE_URL }}
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
       # Requires Pages to be enabled with "GitHub Actions" as the source
       # (Settings -> Pages). Enabling it from here needs read/write workflow
       # permissions, which this repo does not grant.

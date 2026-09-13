@@ -1,11 +1,12 @@
 import { startRouter, type Route } from "./router";
 
 /**
- * Three surfaces, three bundles:
+ * Four surfaces, four bundles:
  *
- *   /         the game itself (pixi), playing the local working copy
+ *   /         the host's console (pixi): the keyboard, the clock, the answers
  *   /creator  authoring (preact), writes documents
  *   /view     a published document (preact chrome around the same pixi scene)
+ *   /play     one contestant's screen, following the host's live room
  *
  * Each route is a dynamic import, so visiting the game never downloads the
  * creator.
@@ -18,6 +19,10 @@ const routes: Route[] = [
   {
     path: "/view",
     load: () => import("./viewer/mount"),
+  },
+  {
+    path: "/play",
+    load: () => import("./player/mount"),
   },
 ];
 

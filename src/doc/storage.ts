@@ -7,8 +7,13 @@
  */
 import { parseDoc, type GameDoc } from "./types";
 
-const KEY_PREFIX = "gamestarter.doc.";
-const INDEX_KEY = "gamestarter.docs";
+/**
+ * Namespaced per game, not per starter. Every GitHub Pages project on an
+ * account shares one origin, so two games built from the same template would
+ * otherwise read each other's working copies.
+ */
+const KEY_PREFIX = "donut.doc.";
+const INDEX_KEY = "donut.docs";
 
 export interface DocEntry {
   id: string;

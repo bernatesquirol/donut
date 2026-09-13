@@ -4,9 +4,9 @@ import qs from "qs";
  * Every tunable in one place. Any leaf can be overridden from the URL query
  * string using dotted paths, e.g.
  *
- *   ?game.itemSize=0.2&game.bob=0&game.debugHitArea
+ *   ?game.timeLimit=90&game.strikes=2&game.showAnswer=off
  *
- * Booleans also accept a bare flag (`?game.debugHitArea`) and on/off/yes/no.
+ * Booleans also accept a bare flag (`?game.showAnswer`) and on/off/yes/no.
  * Unknown keys and unparseable values are warned about and ignored, so a
  * fat-fingered URL degrades to the defaults instead of breaking the app.
  *
@@ -16,14 +16,66 @@ import qs from "qs";
  */
 export const DEFAULT_CONFIG = {
   game: {
-    /** Item size as a fraction of the stage's shorter side. */
-    itemSize: 0.14,
-    /** Idle bob amplitude in px. 0 stills the scene. */
-    bob: 5,
-    /** Seconds for one full bob cycle. */
-    bobPeriod: 2.4,
-    /** Outline each item's hit area. Toggle at runtime with "h". */
-    debugHitArea: false,
+    /**
+     * Seconds on each contestant's clock, overriding whatever the document
+     * says. 0 keeps the document's own limit, which is the normal case — set
+     * this from the URL to run a short round without re-authoring anything:
+     *
+     *   /?game.timeLimit=30
+     */
+    timeLimit: 0,
+    /**
+     * Wrong answers a contestant gets in one turn before the table passes.
+     * 1 — the default — means any mistake costs the turn.
+     *
+     * Counted per turn rather than per round, so it resets whenever they lose
+     * the table. Raise it for a gentler round: ?game.strikes=2
+     */
+    strikes: 1,
+    /** Rosco diameter as a fraction of the space one contestant is given. */
+    roscoSize: 0.94,
+    /**
+     * Print the expected answer under the clue. On for a host reading from
+     * the same screen; off when the screen is also facing the contestants.
+     * Toggle at runtime with "a".
+     */
+    showAnswer: true,
+    /**
+     * Hide the clue whenever the clock is stopped, so a pause is not free
+     * thinking time — the host starts the clock and reads in one move.
+     *
+     * The creator's preview turns this off: its clock never runs, and a
+     * preview that never shows a clue is no use for checking one.
+     */
+    hideCluePaused: true,
+    /** Seconds left when the clock turns red and starts ticking audibly. */
+    warnAt: 15,
+    /** Master volume for the cues, 0..1. 0 mutes. */
+    volume: 0.5,
+  },
+  live: {
+    /**
+     * Firebase Realtime Database holds the state of a round in progress, so
+     * the host console and the contestants' screens all see the same thing.
+     * Every value is inlined into the bundle at build time from
+     * VITE_FIREBASE_*, and none of them is a secret: a web config identifies
+     * a project, it does not authorise anything.
+     *
+     * Leave them unset and the live screens fall back to a same-browser
+     * transport — still usable for a rehearsal on one machine.
+     */
+    firebase: {
+      apiKey: import.meta.env.VITE_FIREBASE_API_KEY ?? "",
+      authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ?? "",
+      databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL ?? "",
+      projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID ?? "",
+      appId: import.meta.env.VITE_FIREBASE_APP_ID ?? "",
+    },
+    /**
+     * Top-level database key every room lives under. Change it per game, or
+     * two games share one set of rooms.
+     */
+    root: "donut-rooms",
   },
   persistence: {
     /**
@@ -40,7 +92,7 @@ export const DEFAULT_CONFIG = {
      * validates this prefix, so it has to match what the endpoint allows —
      * change it per game, or two games share one catalogue.
      */
-    prefix: "blank-game/docs",
+    prefix: "donut/docs",
     /** Give up on a presign request after this many milliseconds. */
     timeoutMs: 10000,
   },

@@ -1,13 +1,19 @@
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useMemo, useRef } from "preact/hooks";
 import type { AppConfig } from "../config";
+import type { GameDoc } from "../doc/types";
 import { createGame, type GameHandle } from "../game/game";
-import type { DocItem, GameDoc } from "../doc/types";
+import type { SceneTap } from "../game/Scene";
+
+export interface Selection {
+  seat: number;
+  index: number;
+}
 
 interface Props {
   config: AppConfig;
   doc: GameDoc;
-  selectedId: string | null;
-  onTap: (x: number, y: number, item: DocItem | null) => void;
+  selection: Selection | null;
+  onTap: (tap: SceneTap | null) => void;
 }
 
 /**
@@ -17,13 +23,27 @@ interface Props {
  * the Application on every keystroke would drop a WebGL context per edit.
  * Everything that changes per render is read through a ref so the boot effect
  * can have an empty dependency list and mean it.
+ *
+ * It really is the game, rules and all — the clock is stopped, but the donut
+ * shows which letters are playable and where the round would start. Clicking
+ * a letter selects it in the form.
  */
-export function Preview({ config, doc, selectedId, onTap }: Props) {
+export function Preview({ config, doc, selection, onTap }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const game = useRef<GameHandle | null>(null);
 
-  const latest = useRef({ doc, selectedId, onTap });
-  latest.current = { doc, selectedId, onTap };
+  // The preview's clock never starts, so the game's "hide the clue while the
+  // clock is stopped" rule would blank the one thing being authored.
+  const previewConfig = useMemo(
+    () => ({
+      ...config,
+      game: { ...config.game, hideCluePaused: false },
+    }),
+    [config],
+  );
+
+  const latest = useRef({ doc, selection, onTap });
+  latest.current = { doc, selection, onTap };
 
   useEffect(() => {
     const el = host.current;
@@ -33,9 +53,9 @@ export function Preview({ config, doc, selectedId, onTap }: Props) {
     let handle: GameHandle | null = null;
 
     createGame(el, {
-      config,
+      config: previewConfig,
       doc: latest.current.doc,
-      onTap: (x, y, item) => latest.current.onTap(x, y, item),
+      onTap: (tap) => latest.current.onTap(tap),
     }).then((h) => {
       if (cancelled) {
         h.destroy();
@@ -45,7 +65,7 @@ export function Preview({ config, doc, selectedId, onTap }: Props) {
       game.current = h;
       // Edits during the async boot would otherwise be lost.
       h.setDoc(latest.current.doc);
-      h.scene.setHighlight(latest.current.selectedId);
+      apply(h, latest.current.selection);
     });
 
     return () => {
@@ -57,10 +77,16 @@ export function Preview({ config, doc, selectedId, onTap }: Props) {
   }, []);
 
   useEffect(() => {
-    game.current?.setDoc(doc);
-    // setDoc reconciles tiles, so the highlight has to be re-applied after it.
-    game.current?.scene.setHighlight(selectedId);
-  }, [doc, selectedId]);
+    const handle = game.current;
+    if (!handle) return;
+    handle.setDoc(doc);
+    // setDoc restarts the round, so the selection has to be re-applied after.
+    apply(handle, selection);
+  }, [doc, selection]);
 
   return <div class="preview" ref={host} />;
+}
+
+function apply(handle: GameHandle, selection: Selection | null): void {
+  handle.scene.setSelection(selection?.seat ?? null, selection?.index ?? null);
 }

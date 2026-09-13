@@ -32,3 +32,37 @@ html, body {
     user-select: none;
     -webkit-tap-highlight-color: transparent;
 }
+
+/* Route `/` resolves its document before it boots pixi — possibly over the
+   network. This is what shows while that happens, and what stays on screen
+   with an explanation when the document cannot be found. */
+.boot-notice {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    text-align: center;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #6b7686;
+}
+
+/* The `hidden` attribute only sets `display: none` from the UA stylesheet, so
+   the `display: flex` above beats it and a hidden notice stays on screen. */
+.boot-notice[hidden] {
+    display: none;
+}
+
+.boot-notice strong {
+    color: #e8edf5;
+    font-size: 17px;
+    font-weight: 600;
+}
+
+.boot-notice a {
+    color: #2fbfa8;
+}

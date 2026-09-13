@@ -10,12 +10,23 @@ export interface Route {
   load: () => Promise<{ mount: (root: HTMLElement) => void | Promise<void> }>;
 }
 
-/** Base without its trailing slash: "" in dev, "/blank-game" on Pages. */
+/**
+ * Base without its trailing slash. Empty unless the site was built for a
+ * subpath — see `BASE_PATH` in `vite.config.ts`.
+ */
 const BASE = import.meta.env.BASE_URL.replace(/\/+$/, "");
 
 /** Turn a base-relative path into an href. */
 export function link(path: string): string {
   return BASE + path;
+}
+
+/**
+ * A link worth copying: the same path with this origin on the front. Anything
+ * shown to be pasted elsewhere needs one.
+ */
+export function absoluteLink(path: string): string {
+  return new URL(link(path), window.location.origin).href;
 }
 
 export function normalisePath(pathname: string): string {

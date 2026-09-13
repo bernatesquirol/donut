@@ -1,5 +1,5 @@
 {
-  "name": "blank-game",
+  "name": "donut",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -7,9 +7,11 @@
     "start": "npm run dev",
     "build": "npm run lint && tsc && vite build",
     "lint": "eslint .",
-    "dev": "vite"
+    "dev": "vite",
+    "preview": "vite preview"
   },
   "dependencies": {
+    "firebase": "^12.19.0",
     "pixi.js": "^8.8.1",
     "preact": "^10.29.8",
     "qs": "^6.16.0"
