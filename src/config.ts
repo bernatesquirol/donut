@@ -41,11 +41,13 @@ export const DEFAULT_CONFIG = {
      */
     showAnswer: true,
     /**
-     * Hide the clue whenever the clock is stopped, so a pause is not free
-     * thinking time — the host starts the clock and reads in one move.
+     * Hide the clue on the contestants' screens and on `/view` whenever the
+     * clock is stopped, so a pause is not free thinking time.
      *
-     * The creator's preview turns this off: its clock never runs, and a
-     * preview that never shows a clue is no use for checking one.
+     * The host's console is exempt whatever this says — see `redactionFor` —
+     * because stopping the clock is what a host does in order to adjudicate,
+     * or to read the next clue, and neither works off a blank panel. Turn
+     * this off to leave the clue up on the other screens too.
      */
     hideCluePaused: true,
     /** Seconds left when the clock turns red and starts ticking audibly. */

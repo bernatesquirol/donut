@@ -154,10 +154,15 @@ play and nothing else, drawn as the single panel under the donut of whoever
 has to answer it. The wire could not carry more if it wanted to: it has room
 for the letter on the table and no field for an answer.
 
-Stopping the clock hides the clue — `game.hideCluePaused`, on by default.
-The letter stays on show, because the donut is already pointing at it; it is
-the clue and the answer that go. `?game.hideCluePaused=off` keeps them up if
-you would rather adjudicate a disputed answer with the clue still readable.
+Stopping the clock hides the clue on the contestants' screens and on `/view`
+— `game.hideCluePaused`, on by default — so a pause is not free thinking
+time. The letter stays on show, because the donut is already pointing at it;
+it is the clue that goes. `?game.hideCluePaused=off` leaves it up.
+
+The console is exempt. Stopping the clock is what a host does in order to
+adjudicate a disputed answer, or to take a breath before reading the next one
+out, and neither works off a blank panel — so the host keeps the clue and the
+answer whether the clock is running or not.
 
 The cues (right, wrong, pass, hand-over, the last few seconds ticking down,
 time up, round over) are synthesised with an oscillator in
@@ -287,10 +292,9 @@ Two consequences worth knowing:
   donut draws it faintly, so a half-authored board is playable rather than
   broken. That is also what makes the creator's preview useful from the first
   clue you type.
-- **The preview overrides `hideCluePaused`.** Its clock never starts, so the
-  game's rule would blank the one thing being authored. It is the only place
-  that overrides the config, and [`Preview.tsx`](src/creator/Preview.tsx) says
-  so at the point it does it.
+- **The creator's preview is the host's redaction.** Its clock never starts,
+  which used to mean blanking the one thing being authored; the host is now
+  exempt from that rule for its own reasons, and the preview gets it free.
 
 ## Authoring
 

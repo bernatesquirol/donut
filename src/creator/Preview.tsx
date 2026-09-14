@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "preact/hooks";
+import { useEffect, useRef } from "preact/hooks";
 import type { AppConfig } from "../config";
 import type { GameDoc } from "../doc/types";
 import { createGame, type GameHandle } from "../game/game";
@@ -32,16 +32,6 @@ export function Preview({ config, doc, selection, onTap }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const game = useRef<GameHandle | null>(null);
 
-  // The preview's clock never starts, so the game's "hide the clue while the
-  // clock is stopped" rule would blank the one thing being authored.
-  const previewConfig = useMemo(
-    () => ({
-      ...config,
-      game: { ...config.game, hideCluePaused: false },
-    }),
-    [config],
-  );
-
   const latest = useRef({ doc, selection, onTap });
   latest.current = { doc, selection, onTap };
 
@@ -53,7 +43,7 @@ export function Preview({ config, doc, selection, onTap }: Props) {
     let handle: GameHandle | null = null;
 
     createGame(el, {
-      config: previewConfig,
+      config,
       doc: latest.current.doc,
       onTap: (tap) => latest.current.onTap(tap),
     }).then((h) => {

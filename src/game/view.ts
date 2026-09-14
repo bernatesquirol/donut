@@ -123,7 +123,11 @@ export interface Redaction {
   clue: boolean;
   /** Print the expected answer. Never true on a contestant's screen. */
   answer: boolean;
-  /** Blank the clue whenever the clock is stopped. */
+  /**
+   * Blank the clue whenever the clock is stopped, so a pause is not free
+   * thinking time. Never true for the host, who is the one person in the
+   * room who needs the clue most while the clock is not running.
+   */
   hideWhenPaused: boolean;
   /**
    * How many panels to word.
@@ -139,12 +143,20 @@ export interface Redaction {
   panels: "current" | "host";
 }
 
-/** The host's console: everything, subject to their own two toggles. */
+/**
+ * The host's console: everything, subject to their own answer toggle.
+ *
+ * `hideWhenPaused` is not one of the toggles, and deliberately not
+ * `config.game.hideCluePaused`: that setting is about what a *contestant* may
+ * read while the clock is stopped. Stopping the clock is what a host does in
+ * order to adjudicate a disputed answer, or to take a breath before reading
+ * the next one out, and neither works off a blank panel.
+ */
 export function redactionFor(config: AppConfig): Redaction {
   return {
     clue: true,
     answer: config.game.showAnswer,
-    hideWhenPaused: config.game.hideCluePaused,
+    hideWhenPaused: false,
     panels: "host",
   };
 }
@@ -293,9 +305,9 @@ function questionOf(
   const worded = prompt(entry).toUpperCase();
 
   // The letter stays on show either way — the donut is already pointing at
-  // it — but the clue itself waits for the clock. The waiting seat's panel
-  // follows the same rule: a pause should not turn into free reading time
-  // for anyone who can see this screen.
+  // it — but the clue itself waits for the clock. Only ever on a screen that
+  // is not the host's: a pause should not turn into free reading time for a
+  // contestant, and it is the host who called the pause.
   if (show.hideWhenPaused && !state.running) {
     return { ...base, prompt: worded };
   }
