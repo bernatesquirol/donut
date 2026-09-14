@@ -32,6 +32,14 @@ export interface ControlHost {
   toggleMute(): void;
   /** Open the key guide, pausing the clock. */
   showGuide(): void;
+  /**
+   * Ask whether to restart, and restart if the answer is yes.
+   *
+   * The one action the keyboard does not just do. Every other key is covered
+   * by `undo`; `reset` empties the undo history along with the round, so
+   * there is nothing left to take it back with.
+   */
+  confirmReset(): void;
 }
 
 export interface Binding {
@@ -158,8 +166,8 @@ export const BINDINGS: Binding[] = [
   {
     keys: ["r"],
     label: "R",
-    description: "restart the round from the top",
-    run: ({ match }) => match.reset(),
+    description: "restart the round from the top — asks first",
+    run: (host) => host.confirmReset(),
   },
   {
     keys: ["h", "?"],

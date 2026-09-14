@@ -74,11 +74,20 @@ while they do it. Press `H` in the game for this list on screen.
 | `0` `9`     | add / take 10s on the right contestant's clock     |
 | `A`         | show or hide the answer                            |
 | `M`         | mute or unmute the cues                            |
-| `R`         | restart the round                                  |
+| `R`         | restart the round — asks first                     |
 
 `Z` covers everything, so a mis-key under time pressure is always
 recoverable — including the clock hitting zero, which is snapshotted like any
 other action.
+
+Everything except `R`. Restarting empties the undo history along with the
+round, so it is the one key with nothing left to take it back, and the one
+key that asks: it stops the clock and puts up a card. `Y` or a tap on the
+`RESTART` button goes through; `N`, Escape, a tap anywhere else, and every
+other key mean no. Deliberately not Enter — Enter is `markCorrect`, the key a
+host presses more than all the others put together, and a dialog that took it
+as yes would throw the round away the first time someone mis-keyed `R` and
+carried on ruling.
 
 Both clocks can be set by hand, whoever has the table: the two keys at the
 left-hand end of the number row belong to the contestant on the left of the

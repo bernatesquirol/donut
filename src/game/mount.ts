@@ -6,6 +6,7 @@ import { HostSession } from "../live/session";
 import { createTransport } from "../live/transport";
 import { roomPath } from "../live/types";
 import { readVersionFromUrl } from "../persistence";
+import { Confirm } from "../ui/Confirm";
 import { KeyGuide } from "../ui/KeyGuide";
 import { addNotice, failNotice } from "../ui/notice";
 import { Sfx } from "./audio";
@@ -88,13 +89,42 @@ export async function mount(root: HTMLElement): Promise<void> {
   game.match.onEvent = (event) => sfx.cue(event);
 
   const guide = new KeyGuide(guideRows(config));
-  game.app.stage.addChild(guide);
+  // Added last, so it is over the key card as well as over the stage.
+  const confirm = new Confirm();
+  game.app.stage.addChild(guide, confirm);
 
-  function sizeGuide(): void {
-    guide.resize(game.app.screen.width, game.app.screen.height);
+  function sizeOverlays(): void {
+    const { width, height } = game.app.screen;
+    guide.resize(width, height);
+    confirm.resize(width, height);
   }
-  game.app.renderer.on("resize", sizeGuide);
-  sizeGuide();
+  game.app.renderer.on("resize", sizeOverlays);
+  sizeOverlays();
+
+  /**
+   * `R`, which is the one key that cannot be taken back: `reset` empties the
+   * undo history along with the round.
+   *
+   * The clock stops first. Reading a dialog is not playing, and a contestant
+   * whose clock drained while the host decided would have paid for the
+   * mis-key either way.
+   */
+  function askReset(): void {
+    game.match.stop();
+    confirm.ask(
+      {
+        title: "Restart the round?",
+        detail:
+          "Every ruling on both donuts goes and both clocks go back to the " +
+          "top. Z cannot take this one back.",
+        confirm: "restart",
+        cancel: "keep playing",
+      },
+      (ok) => {
+        if (ok) game.match.reset();
+      },
+    );
+  }
 
   /** Reflect whatever the host has switched off, next to the help key. */
   function writeHint(): void {
@@ -127,14 +157,18 @@ export async function mount(root: HTMLElement): Promise<void> {
   );
   guide.show();
 
-  // Registered before `bindKeyboard`, and it stops the event dead: while the
-  // card is up, every key closes it rather than ruling on a letter nobody has
-  // been asked yet.
+  // Registered before `bindKeyboard`, and it stops the event dead: while
+  // either card is up the keyboard belongs to the card, not to a letter
+  // nobody has been asked yet.
   window.addEventListener("keydown", (e) => {
-    if (!guide.open) return;
+    if (!confirm.open && !guide.open) return;
     e.preventDefault();
     e.stopImmediatePropagation();
-    closeGuide();
+    // The confirm sits over the guide, so it answers first. Every key is an
+    // answer — `Y` is yes and the rest are no — and the guide's rule is the
+    // same shape: any key closes it.
+    if (confirm.open) confirm.handleKey(e.key);
+    else closeGuide();
   });
 
   bindKeyboard({
@@ -150,6 +184,7 @@ export async function mount(root: HTMLElement): Promise<void> {
       writeHint();
     },
     showGuide: openGuide,
+    confirmReset: askReset,
   });
 
   writeHint();
