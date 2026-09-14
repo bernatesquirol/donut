@@ -79,6 +79,7 @@ export type MatchEvent =
   | "switch"
   | "tick"
   | "timeup"
+  | "time"
   | "over";
 
 export interface MatchOptions {
@@ -334,6 +335,49 @@ export class Match {
     this.changed();
   }
 
+  /**
+   * Hand a contestant more clock, or take some off. Either seat, whichever
+   * one is on the table.
+   *
+   * Either seat because that is when a host needs it: a studio interruption
+   * costs the contestant who is *playing* their time, and a mis-set clock is
+   * usually noticed while the other one is up. Making the host wait for the
+   * table to come round to fix it is no use to anybody.
+   *
+   * A seat whose clock had run out comes back into the round, which is the
+   * point. A finished round does not reopen, though — `undo` whatever ended
+   * it first, or the result would have to be unpicked as well.
+   */
+  addTime(index: number, deltaMs: number): void {
+    const s = this.state;
+    const seat = s.seats[index];
+    if (s.result || !seat || deltaMs === 0) return;
+
+    // Fold the running clock in before touching a reading: otherwise the
+    // next `syncClock` would recompute it from an anchor that predates this.
+    this.syncClock();
+    this.push();
+
+    seat.remainingMs = Math.max(0, seat.remainingMs + deltaMs);
+    // Time on the clock again is no use without a letter to spend it on.
+    if (seat.index < 0) seat.index = findAskable(seat, -1, 1);
+    retire(seat);
+
+    // Taking time off can run a clock down to nothing, and that has to end
+    // the turn exactly as the clock hitting zero on its own does.
+    if (index === s.turn && seat.done) {
+      s.running = false;
+      this.handOver();
+    }
+
+    // The new reading is the anchor; without this the running seat would
+    // carry on counting down from the old one and undo the adjustment.
+    this.anchor();
+    this.onEvent("time");
+    this.settle();
+    this.changed();
+  }
+
   /** Move to another askable letter without ruling the current one. */
   step(delta: number): void {
     const seat = this.seat;
@@ -494,6 +538,20 @@ function askable(seat: SeatState, index: number): boolean {
   if (!entry || !isPlayable(entry)) return false;
   const ruling = seat.rulings[index];
   return ruling === "open" || ruling === "passed";
+}
+
+/**
+ * The letter this seat would be asked *after* the one on the table, or -1
+ * when there is no other — either they are on their last one or the donut is
+ * finished.
+ *
+ * Exported for the host's read-ahead panel: `view.ts` has to word the same
+ * "what comes next" the rules will pick, and working it out a second time
+ * from the rulings is how the two drift apart.
+ */
+export function askableAfter(seat: SeatState, from: number): number {
+  const next = findAskable(seat, from, 1);
+  return next === from ? -1 : next;
 }
 
 /**

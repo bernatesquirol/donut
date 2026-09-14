@@ -49,7 +49,11 @@ and stops. It deliberately does not fall back to the local working copy:
 quietly playing a different round looks exactly like the link working.
 
 `/view?id=…` is the read-only board for the same published document, for
-anyone who should see a round without being able to rule on it.
+anyone who should see a round without being able to rule on it. It shows one
+question — the one being read out — and says which side of the stage the
+contestant who has to answer it is sitting on. Not the expected answer, and
+not the other donut's question: it is a link, and anyone with the link can
+open it.
 
 ## The keys
 
@@ -66,6 +70,8 @@ while they do it. Press `H` in the game for this list on screen.
 | `←` `→`     | move to another letter without ruling this one     |
 | `Z`         | undo — including a hand-over or a clock that ran out |
 | `O`         | reopen this letter, as if it had never been asked  |
+| `1` `2`     | add / take 10s on the left contestant's clock      |
+| `0` `9`     | add / take 10s on the right contestant's clock     |
 | `A`         | show or hide the answer                            |
 | `M`         | mute or unmute the cues                            |
 | `R`         | restart the round                                  |
@@ -74,6 +80,17 @@ while they do it. Press `H` in the game for this list on screen.
 recoverable — including the clock hitting zero, which is snapshotted like any
 other action.
 
+Both clocks can be set by hand, whoever has the table: the two keys at the
+left-hand end of the number row belong to the contestant on the left of the
+stage, the two at the right-hand end to the one on the right, and the outer
+key of each pair adds. Either seat, because the usual reason to reach for
+this is that the studio interrupted the contestant who is *not* playing yet,
+and making the host wait for the table to come round to fix it is no use. A
+clock that had run out brings its contestant back into the round. The step is
+`game.timeStep`, 10 seconds by default — `?game.timeStep=30` for a longer
+one, and the key card rewords itself to match. A finished round does not
+reopen: `Z` takes back whatever ended it first.
+
 One mistake costs the turn — `game.strikes`, which defaults to 1. Raise it for
 a gentler round: `?game.strikes=2` gives each contestant two mistakes before
 the table passes, the status line turns red and reads `STRIKE 1 OF 2` while one
@@ -81,14 +98,52 @@ is outstanding, and the key card rewords itself to match. Strikes are counted
 per turn rather than per round, so they clear whenever a contestant loses the
 table — which means a pass wipes one.
 
-Both questions are on the console at once: one panel per contestant, the one
-being read out ringed in accent and the waiting one dimmed beside it. The
-table moves between the two donuts on a single clock, so a host who can only
-see the letter in play has to go looking for the next one in a document while
-that clock runs. Below about 620px of stage there is only room for one panel,
-and the question in play wins. Contestants' screens are unaffected — the wire
-carries the letter on the table and nothing else, so no screen but the host's
-can show the other seat's next clue.
+The stage is a column per contestant: their donut, and under it the questions
+that are theirs. Three questions on the console at once, because three is how
+many could be the next one the host reads out — a right answer keeps the clock
+and moves this contestant on a letter, and anything else hands the table over.
+
+```
+        PLAYER 1                      PLAYER 2
+        ( donut )                     ( donut )
+
+   CURRENT · PLAYER 1             NEXT · PLAYER 2
+   what is being asked            what they are sitting on
+
+   NEXT · PLAYER 1
+   where a right answer goes
+```
+
+A row of panels across the foot answers "what am I asking" and leaves "whose
+is it" to a label. Putting each question under the ring it belongs to answers
+both without reading anything: the contestant with the table has two panels
+in their column, the other has one, and the columns swap shape the moment the
+table does. Exactly one panel says `CURRENT` and it is the one ringed in
+accent; everything else is that contestant's `NEXT`.
+
+Panels are the same height whichever column they are in and the stacks are
+top-aligned, so the two questions actually on the table sit on one line with
+the read-ahead hanging below its own — rather than inflating a question
+nobody has been asked yet to twice the size of the one being read out.
+
+Each clue is set at the largest size it actually fits at — measured, not
+guessed from a ratio — in whatever is left of the panel once the heading, the
+wording and the answer have taken their rooms, so a short clue is big and a
+long one shrinks instead of running out of its box. `game.roscoSize` scales
+the rings if you want more or less room for the clues.
+
+Two cases cannot be columns, and both fall back to one row across the foot
+with the donuts sharing the middle: a round-wide notice like `ROUND OVER`,
+which belongs to no donut, and a stage narrow enough that a column would be
+thinner than a readable panel. In the narrow case the panels are given up in
+order, the read-ahead first and then the opponent's; the question in play is
+never dropped, and its panel names the side of the stage to look at since it
+is no longer sitting under it.
+
+Contestants' screens and `/view` are unaffected — both get the question in
+play and nothing else, drawn as the single panel under the donut of whoever
+has to answer it. The wire could not carry more if it wanted to: it has room
+for the letter on the table and no field for an answer.
 
 Stopping the clock hides the clue — `game.hideCluePaused`, on by default.
 The letter stays on show, because the donut is already pointing at it; it is

@@ -4,6 +4,7 @@ import { RemoteStore } from "../doc/remote";
 import * as storage from "../doc/storage";
 import { boardProgress, timeLimitOf, type GameDoc } from "../doc/types";
 import { createGame, type GameHandle } from "../game/game";
+import { redactionForAudience } from "../game/view";
 import { readVersionFromUrl } from "../persistence";
 import { link } from "../router";
 
@@ -128,7 +129,15 @@ function Header({ title }: { title: string }) {
   );
 }
 
-/** The scene, read-only. Same host contract as the creator's preview. */
+/**
+ * The scene, read-only. Same host contract as the creator's preview, with one
+ * difference that matters: the redaction.
+ *
+ * This page is a link, and anyone who has the link can open it — so it gets
+ * the audience's view, not the host's. One question, the one being read out,
+ * with the side of the stage the contestant who has to answer it is sitting
+ * on; no expected answer, and no reading ahead on either donut.
+ */
 function Stage({ doc, config }: { doc: GameDoc; config: AppConfig }) {
   const host = useRef<HTMLDivElement>(null);
 
@@ -138,7 +147,11 @@ function Stage({ doc, config }: { doc: GameDoc; config: AppConfig }) {
     let cancelled = false;
     let handle: GameHandle | null = null;
 
-    createGame(el, { config, doc }).then((h) => {
+    createGame(el, {
+      config,
+      doc,
+      redaction: redactionForAudience(config),
+    }).then((h) => {
       if (cancelled) {
         h.destroy();
         return;

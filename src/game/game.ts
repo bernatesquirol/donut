@@ -4,11 +4,18 @@ import { timeLimitOf, type GameDoc } from "../doc/types";
 import { theme } from "../theme";
 import { Match, type MatchOptions, type MatchState } from "./match";
 import { Scene, type SceneTap } from "./Scene";
-import { viewOf } from "./view";
+import { redactionFor, viewOf, type Redaction } from "./view";
 
 export interface GameOptions {
   config: AppConfig;
   doc: GameDoc;
+  /**
+   * How much of the round this surface is entitled to draw. Defaults to the
+   * host's own settings, which is right for `/` and for the creator's
+   * preview and wrong for anything facing an audience — `/view` passes
+   * `redactionForAudience`.
+   */
+  redaction?: Redaction;
   onTap?: (tap: SceneTap | null) => void;
   /**
    * After every match change, before the frame that shows it. This is where
@@ -69,18 +76,27 @@ export async function createGame(
 
   let doc = opts.doc;
 
+  /**
+   * Read per view rather than captured once: the host's "a" key flips
+   * `config.game.showAnswer` and then calls `refresh`, and a snapshot taken
+   * at boot would have made that key do nothing.
+   */
+  function show(): Redaction {
+    return opts.redaction ?? redactionFor(opts.config);
+  }
+
   const scene = new Scene(opts.config);
   if (opts.onTap) scene.onTap = opts.onTap;
   app.stage.addChild(scene);
 
   const match = new Match(doc, matchOptions(doc, opts.config));
   match.onChange = (state) => {
-    scene.setState(viewOf(state, doc, opts.config));
+    scene.setState(viewOf(state, doc, opts.config, show()));
     opts.onChange?.(state);
   };
 
   scene.setTitle(doc.title);
-  scene.setState(viewOf(match.snapshot, doc, opts.config));
+  scene.setState(viewOf(match.snapshot, doc, opts.config, show()));
 
   function apply(): void {
     const w = Math.max(1, Math.round(host.clientWidth));
@@ -113,7 +129,7 @@ export async function createGame(
       match.setDoc(next, matchOptions(next, opts.config));
     },
     refresh() {
-      scene.setState(viewOf(match.snapshot, doc, opts.config));
+      scene.setState(viewOf(match.snapshot, doc, opts.config, show()));
       scene.refresh();
       apply();
     },

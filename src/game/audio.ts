@@ -119,6 +119,19 @@ export class Sfx {
           gain: 0.18,
         });
         break;
+      // A clock adjusted by hand. Two clean notes: the host has to hear that
+      // the key landed, and nobody should mistake it for a ruling.
+      case "time":
+        this.blip({ from: 880, to: 880, dur: 0.05, type: "sine", gain: 0.3 });
+        this.blip({
+          from: 1175,
+          to: 1175,
+          dur: 0.08,
+          at: 0.06,
+          type: "sine",
+          gain: 0.3,
+        });
+        break;
       case "timeup":
         for (let i = 0; i < 3; i++) {
           this.blip({

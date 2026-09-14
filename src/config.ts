@@ -50,6 +50,12 @@ export const DEFAULT_CONFIG = {
     hideCluePaused: true,
     /** Seconds left when the clock turns red and starts ticking audibly. */
     warnAt: 15,
+    /**
+     * Seconds the host's clock keys put on — or take off — a contestant's
+     * clock. Both directions use the same step, so a mis-key is one press
+     * back: ?game.timeStep=30
+     */
+    timeStep: 10,
     /** Master volume for the cues, 0..1. 0 mutes. */
     volume: 0.5,
   },

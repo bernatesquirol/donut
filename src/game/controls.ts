@@ -15,10 +15,17 @@ import type { Match } from "./match";
  *
  * How many wrong answers a turn survives is `config.game.strikes`, not
  * something the keyboard decides — the host rules on the answer and the rules
- * work out what it costs. `guideRows` is what keeps the card in step with it.
+ * work out what it costs. Same for how much the clock keys are worth:
+ * `config.game.timeStep`. `guideRows` is what keeps the card in step with
+ * both.
  */
 export interface ControlHost {
   match: Match;
+  /**
+   * Read at the moment a key is pressed, not when the table was built, so a
+   * binding whose effect a setting decides sees the current value.
+   */
+  config: AppConfig;
   /** Show or hide the expected answer under the clue. */
   toggleAnswer(): void;
   /** Silence the cues, or bring them back. */
@@ -100,6 +107,41 @@ export const BINDINGS: Binding[] = [
     label: "O",
     description: "reopen this letter, as if it had never been asked",
     run: ({ match }) => match.reopen(),
+  },
+  // Adjusting a clock by hand: the two keys at the left-hand end of the
+  // number row belong to the contestant on the left of the stage, the two at
+  // the right-hand end to the one on the right, and the outer key of each
+  // pair adds. It is a mapping you can find without looking down, which is
+  // the only kind worth having here — and the usual reason to reach for it is
+  // that the studio interrupted the contestant who is *not* playing yet, so
+  // both clocks have to be reachable whoever has the table.
+  {
+    keys: ["1"],
+    label: "1",
+    description: "add time to the left contestant's clock",
+    describe: ({ game }) => `left contestant +${game.timeStep}s`,
+    run: ({ match, config }) => match.addTime(0, config.game.timeStep * 1000),
+  },
+  {
+    keys: ["2"],
+    label: "2",
+    description: "take time off the left contestant's clock",
+    describe: ({ game }) => `left contestant -${game.timeStep}s`,
+    run: ({ match, config }) => match.addTime(0, -config.game.timeStep * 1000),
+  },
+  {
+    keys: ["9"],
+    label: "9",
+    description: "take time off the right contestant's clock",
+    describe: ({ game }) => `right contestant -${game.timeStep}s`,
+    run: ({ match, config }) => match.addTime(1, -config.game.timeStep * 1000),
+  },
+  {
+    keys: ["0"],
+    label: "0",
+    description: "add time to the right contestant's clock",
+    describe: ({ game }) => `right contestant +${game.timeStep}s`,
+    run: ({ match, config }) => match.addTime(1, config.game.timeStep * 1000),
   },
   {
     keys: ["a"],

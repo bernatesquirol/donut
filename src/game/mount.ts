@@ -11,7 +11,7 @@ import { addNotice, failNotice } from "../ui/notice";
 import { Sfx } from "./audio";
 import { bindKeyboard, guideRows } from "./controls";
 import { createGame } from "./game";
-import { viewOf, type Redaction } from "./view";
+import { redactionForAudience, viewOf } from "./view";
 
 /**
  * Route `/`: the host's console, full-screen.
@@ -58,16 +58,11 @@ export async function mount(root: HTMLElement): Promise<void> {
   /**
    * What the contestants' screens are allowed to see. Deliberately not
    * `redactionFor(config)`: the host's own answer toggle must not be able to
-   * push answers onto someone else's screen.
+   * push answers onto someone else's screen, and the host reads ahead —
+   * a contestant seeing a clue they have not been asked yet would be reading
+   * ahead too.
    */
-  const forContestants: Redaction = {
-    clue: true,
-    answer: false,
-    hideWhenPaused: config.game.hideCluePaused,
-    // The host reads ahead; a contestant seeing their opponent's next clue
-    // would be reading ahead too.
-    everySeat: false,
-  };
+  const forContestants = redactionForAudience(config);
 
   const game = await createGame(host, {
     config,
@@ -144,6 +139,7 @@ export async function mount(root: HTMLElement): Promise<void> {
 
   bindKeyboard({
     match: game.match,
+    config,
     toggleAnswer() {
       config.game.showAnswer = !config.game.showAnswer;
       game.refresh();

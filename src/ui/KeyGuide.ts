@@ -89,10 +89,14 @@ export class KeyGuide extends Container {
       .fill({ color: theme.bg, alpha: 0.95 });
 
     const n = Math.max(1, this.rows.length);
-    // The list is the part that has to fit; the header takes what is left.
-    const rowH = clamp(this.h * 0.055, 14, 26);
-    const listH = n * rowH;
     const headerH = Math.max(this.h * 0.12, 56);
+    // The list is the part that has to fit, and with this many keys on the
+    // card it is the row height that gives way on a short window: a list
+    // whose last few shortcuts are off the bottom of the screen is worse
+    // than a tight one.
+    const room = (this.h - headerH - metrics.panelPad * 2) / n;
+    const rowH = clamp(Math.min(this.h * 0.055, room), 11, 26);
+    const listH = n * rowH;
 
     const titleSize = clamp(this.h * 0.05, 18, 34);
     setSize(this.titleText, titleSize);

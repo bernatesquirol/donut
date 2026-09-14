@@ -1,4 +1,9 @@
-import { activeQuestion, type MatchView, type SeatView } from "../game/view";
+import {
+  activeQuestion,
+  blankQuestion,
+  type MatchView,
+  type SeatView,
+} from "../game/view";
 import type { LiveMatch, LiveSeat } from "./types";
 
 /**
@@ -81,11 +86,17 @@ export function viewOfLive(live: LiveMatch, serverOffsetMs: number): MatchView {
     result: live.result ?? null,
     strikeLimit: Math.max(1, live.strikeLimit),
     // One panel: the wire carries the letter on the table and nothing else,
-    // so there is no opponent's question here to draw even if a screen
-    // wanted to.
+    // so there is no read-ahead or opponent's question here to draw even if
+    // a screen wanted to.
     questions: [
       {
-        label: live.seats?.[live.turn]?.player ?? "",
+        ...blankQuestion(),
+        // A finished round's panel belongs to nobody — the host published it
+        // as a notice, and re-attributing it to whoever's turn it was would
+        // put a name on "ROUND OVER".
+        label: live.result ? "" : (live.seats?.[live.turn]?.player ?? ""),
+        seat: live.result ? -1 : (live.turn ?? 0),
+        role: live.result ? "notice" : "current",
         active: true,
         prompt: live.prompt ?? "",
         clue: live.clue ?? "",
